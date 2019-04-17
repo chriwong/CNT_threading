@@ -84,9 +84,12 @@ class ContestServer:
 
                     elif menuOption[0] == 'k':
                         print('Server received k')
-
-                        meisterSocket.send('Terminating'.encode())
+                        meisterSocket.send('killed'.encode())
                         break
+
+                    elif menuOption[0] == 'q':
+                        pass
+
                     elif menuOption[0] == 'h':
                         # meisterSocket.send('\tCONTEST MEISTER HELP MENU\np <n> - put new question <n> in question bank\nd <n> - deletes question <n>\ng <n> - retrieves question <n>\ns <n> - set new contest <n>\na <cn> <qn> - append question <qn> to contest <cn>\nbegin <n> - begin contest <n>\nl - list contests\nr <n> - review contest <n>\nk - kill server\nq - kill client\nh - print this help text\n'.encode())
                         print('Server received h')

@@ -45,20 +45,41 @@ class ContestMeister:
         if op[0] == 'p':
             self.p(op)
 
+        elif op[0] == 'd':
+            pass
+
+        elif op[0] == 'g':
+            pass
+
+        elif op[0] == 'k':
+            self.meisterSocket.send('k'.encode())
+            kill_confirm = self.meisterSocket.recv(8).decode()
+            if kill_confirm == 'killed':
+                print('Server successfully killed')
+                sys.exit(1)
+            else:
+                print('Server unsuccessfully killed')
+
+        elif op[0] == 'q':
+            pass
+
+        elif op[0] == 'h':
+            pass
+
         elif op[0] == 's':
-            print('Server received s')
+            pass
 
         elif op[0] == 'a':
-            print('Server received a')
+            pass
 
         elif op[0] == 'b':
-            print('Server received b')
+            pass
 
         elif op[0] == 'l':
-            print('Server received l')
+            pass
 
         elif op[0] == 'r':
-            print('Server received r')
+            pass
 
     def p(self, number):
         newQuestion = buildQuestion(number)
