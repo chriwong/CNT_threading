@@ -14,64 +14,61 @@ class Question:
         self.choices = {}
         self.answer = ''
 
+    def toString(self):
+        s = ''
+        s += self.tag
+        s += '\n'
+        s += self.text
+        s += '\n.\n'
+        for v in self.choices.values():
+            s = s + v + '\n.\n'
+        s += '.\n'
+        s += self.answer
+        return s
+
 
 class ContestMeister:
     def __init__(self):
         self.meisterSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def try_connect(self, host, port):
+    def tryConnect(self, h, p):
         try:
-            self.meisterSocket.connect((host, port))
+            self.meisterSocket.connect((h, p))
             print('Successful connection!')
-        except ConnectionRefusedError as e:
-            print('Error: unable to connect', str(e), file=sys.stderr)
+        except ConnectionRefusedError as connRefE:
+            print('Error: unable to connect', str(connRefE), file=sys.stderr)
             sys.exit(-1)
-        except Exception as e:
-            print('Connection error:', str(e), file=sys.stderr)
+        except Exception as connE:
+            print('Connection error:', str(connE), file=sys.stderr)
 
-    def can_sockets_pickle(self):
-        quest = Question(69)
-        quest.tag = 'TAG YOU\'RE IT'
-        quest.text = 'The quick brown fox jumped over the lazy ?'
-        quest.choices = {'a': '(a) aardvark', 'b': '(b) baboon', 'c': '(c) chimpanzee', 'd': '(d) dog'}
-        quest.answer = 'd'
-        pickledQuest = pickle.dumps(quest)
-        self.meisterSocket.connect(('storm.cise.ufl.edu', 44123))
-        self.meisterSocket.send(pickledQuest)
+    def handle_input(self, op):
+        if op[0] == 'p':
+            self.p(op)
+
+        elif op[0] == 's':
+            print('Server received s')
+
+        elif op[0] == 'a':
+            print('Server received a')
+
+        elif op[0] == 'b':
+            print('Server received b')
+
+        elif op[0] == 'l':
+            print('Server received l')
+
+        elif op[0] == 'r':
+            print('Server received r')
 
     def p(self, number):
-        newQuestion = Question(number)
-        # Tag
-        newQuestion.tag = input()
-
-        # Text
-        buf = input()
-        while buf != '.':
-            newQuestion.text += buf
-            buf = input()
-
-        # Choices
-        choice = input()
-        while True:
-            buf = input()
-            while buf != '.':
-                choice += '\n'  # Keep multi-line choices multi-line
-                choice += buf
-                buf = input()
-            terminator = input()
-            if terminator == '.':
-                break
-            else:
-                newQuestion.choices[choice[1]] = choice
-                choice = terminator
-
-        # Answer
-        newQuestion.answer = input()
-
+        newQuestion = buildQuestion(number)
         pickledNewQuestion = pickle.dumps(newQuestion)
         self.meisterSocket.send(pickledNewQuestion)
+        res = self.meisterSocket.recv(1024).decode()
+        print(res)
 
 
+# Returns only syntactically correct menu options
 def get_sanitized_input():
     while True:
         try:
@@ -88,9 +85,9 @@ def get_sanitized_input():
                         return s
                     else:
                         print('Input validation error: second argument is wonky')
-                except IndexError as e:
+                except IndexError as indexE:
                     print('Input validation error: missing arguments')
-                except ValueError as e:
+                except ValueError as valE:
                     print('Input validation error: numeric arguments expected')
 
             # two arg command
@@ -115,42 +112,70 @@ def get_sanitized_input():
             print('Input validation error:', str(e))
 
 
+# Creates a Question object
+def buildQuestion(number):
+    newQuestion = Question(number)
+
+    # Tag
+    newQuestion.tag = input()
+
+    # Text
+    buf = input()
+    while buf != '.':
+        newQuestion.text += buf
+        buf = input()
+
+    # Choices
+    choice = input()
+    while True:
+        buf = input()
+        while buf != '.':
+            choice += '\n'  # Keep multi-line choices multi-line
+            choice += buf
+            buf = input()
+        terminator = input()
+        newQuestion.choices[choice[1]] = choice
+        choice = terminator
+        if terminator == '.':
+            break
+
+    # Answer
+    newQuestion.answer = input()
+
+    return newQuestion
+
+
 # Program start
 
-# if len(sys.argv) < 3:
-#     print('Error: missing program arguments', file=sys.stderr)
-#     sys.exit(-1)
-#
-# elif len(sys.argv) > 4:
-#     print('Error: too many program arguments', file=sys.stderr)
-#     sys.exit(-1)
-#
-# else:
-#     host = sys.argv[1]
-#     port = sys.argv[2]
-#     contestMeister = ContestMeister()
-#     contestMeister.try_connect(host, port)
-#
-#     if len(sys.argv) == 4:
-#         cmdfilename = sys.argv[3]
-#         try:
-#             with open(cmdfilename, 'r') as cmdfile:
-#                 for line in cmdfile:
-#                     # do command
-#                     pass
-#
-#         except OSError as e:
-#             print('Error opening command file (OSError):', str(e), file=sys.stderr)
-#             sys.exit(-1)
-#         except Exception as ee:
-#             print('Error opening command file: ', str(ee), file=sys.stderr)
-#
-#     else:
-#         while True:
-#             menuOption = get_sani_input()
-#             print('Sanitized input:', menuOption)
-#             if menuOption == 'q':
-#                 sys.exit(1)
+if len(sys.argv) < 3:
+    print('Error: missing program arguments', file=sys.stderr)
+    sys.exit(-1)
 
+elif len(sys.argv) > 4:
+    print('Error: too many program arguments', file=sys.stderr)
+    sys.exit(-1)
+
+host = sys.argv[1]
+port = sys.argv[2]
 contestMeister = ContestMeister()
-contestMeister.can_sockets_pickle()
+contestMeister.tryConnect(host, port)
+
+if len(sys.argv) == 4:
+    cmdfilename = sys.argv[3]
+    try:
+        with open(cmdfilename, 'r') as cmdfile:
+            for line in cmdfile:
+                # do command
+                pass
+
+    except OSError as e:
+        print('Error opening command file (OSError):', str(e), file=sys.stderr)
+        sys.exit(-1)
+    except Exception as ee:
+        print('Error opening command file: ', str(ee), file=sys.stderr)
+
+else:
+    while True:
+        menuOption = get_sanitized_input()
+        print('Sanitized input:', menuOption)
+        contestMeister.handle_input(menuOption)

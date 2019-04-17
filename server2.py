@@ -1,7 +1,6 @@
 # Project 2 - Server
 import os
 import pickle
-import random
 import socket
 import sys
 import threading
@@ -14,6 +13,18 @@ class Question:
         self.text = ''
         self.choices = {}
         self.answer = ''
+
+    def toString(self):
+        s = ''
+        s += self.tag
+        s += '\n'
+        s += self.text
+        s += '\n.\n'
+        for v in self.choices.values():
+            s = s + v + '\n.\n'
+        s += '.\n'
+        s += self.answer
+        return s
 
 
 class Contest:
@@ -31,11 +42,11 @@ class ContestServer:
         try:
             self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.serverSocket.bind((self.host, self.port))
-        except Exception as e:
-            print('Server init error:', str(e), file=sys.stderr)
+        except Exception as initE:
+            print('Server init error:', str(initE), file=sys.stderr)
             sys.exit(-1)
 
-    def begin_listening(self):
+    def startListening(self):
         try:
             self.serverSocket.listen(5)
             print('Server listening on ', self.serverSocket.getsockname()[1])
@@ -46,38 +57,68 @@ class ContestServer:
 
                 while True:
                     menuOption = meisterSocket.recv(64).decode()
+                    print('menuoption:', menuOption)
+
                     if menuOption[0] == 'p':
-                        pass
+                        print('Server received p')
+                        pickledQuestion = meisterSocket.recv(1024)
+                        unpickledQuestion = pickle.loads(pickledQuestion)
+                        if unpickledQuestion.number not in QuestionBank:
+                            QuestionBank[unpickledQuestion.number] = unpickledQuestion
+                            meisterSocket.send('Success'.encode())
+                        else:
+                            # The given question number already exists in the question bank
+                            # Notify the meister as such
+                            meisterSocket.send('Error, that question number already exists'.encode())
+
                     elif menuOption[0] == 'd':
-                        pass
+                        delQuestion = int(menuOption[2:])
+                        try:
+                            del QuestionBank[delQuestion]
+                        except KeyError as keyE:
+                            # The given question number was not in the question bank
+                            meisterSocket.send('Error, that question number did not exist'.encode())
+
                     elif menuOption[0] == 'g':
-                        pass
+                        print('Server received g')
+
                     elif menuOption[0] == 'k':
+                        print('Server received k')
+
                         meisterSocket.send('Terminating'.encode())
                         break
                     elif menuOption[0] == 'h':
                         # meisterSocket.send('\tCONTEST MEISTER HELP MENU\np <n> - put new question <n> in question bank\nd <n> - deletes question <n>\ng <n> - retrieves question <n>\ns <n> - set new contest <n>\na <cn> <qn> - append question <qn> to contest <cn>\nbegin <n> - begin contest <n>\nl - list contests\nr <n> - review contest <n>\nk - kill server\nq - kill client\nh - print this help text\n'.encode())
+                        print('Server received h')
                         pass
+
                     elif menuOption[0] == 's':
-                        pass
+                        print('Server received s')
+
                     elif menuOption[0] == 'a':
-                        pass
+                        print('Server received a')
+
                     elif menuOption[0] == 'b':
-                        pass
+                        print('Server received b')
+
                     elif menuOption[0] == 'l':
-                        pass
+                        print('Server received l')
+
                     elif menuOption[0] == 'r':
-                        pass
+                        print('Server received r')
+
+                    else:
+                        print('Server received unexpected input')
 
                 meisterSocket.close()
                 print(' ~Closed connection')
 
-        except Exception as e:
-            print('Server listen error:', str(e), file=sys.stderr)
+        except Exception as listenE:
+            print('Server listen error:', str(listenE), file=sys.stderr)
             sys.exit(-1)
 
     def can_sockets_pickle(self):
-        self.serverSocket.listen(1)
+        self.serverSocket.listen(5)
         print('Server listening on ', self.serverSocket.getsockname()[1])
         connection, addr = self.serverSocket.accept()
         pickledQ = connection.recv(1024)
@@ -85,17 +126,34 @@ class ContestServer:
         print(normalQuestion)
 
 
+class AcceptClientsThread(threading.Thread):
+    def __init__(self, contestSocket, listOfClients):
+        threading.Thread.__init__(self)
+        self.event = threading.Event()
+        self.event.set()
+        self.contestSocket = contestSocket
+        self.listOfClients = listOfClients
+
+    def run(self):
+        self.contestSocket.listen(5)
+        while self.event.is_set():
+            newClient, newClientAddr = self.contestSocket.accept()
+            self.listOfClients.append(newClient)
+
+
 def main():
     global QuestionBank
     global ContestBank
     contestServer = ContestServer()
-    contestServer.can_sockets_pickle()
+    contestServer.startListening()
 
 
-# Runtime starts here
+# RUNTIME STARTS HERE
 
 QuestionBank = {}   # {int questionNumber, Question q}
 ContestBank = {}    # {int contestNumber, Contest c}
+
+# Try to load QuestionBank from file
 try:
     if os.stat('questionbank.pickle').st_size != 0:
         with open('questionbank.pickle', 'rb') as file:
@@ -107,6 +165,7 @@ except FileNotFoundError as e:
     a = open('questionbank.pickle', 'wb+')
     a.close()
 
+# Try to load ContestBank from file
 try:
     if os.stat('contestbank.pickle').st_size != 0:
         with open('contestbank.pickle', 'rb') as file:
