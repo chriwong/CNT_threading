@@ -190,25 +190,11 @@ class ContestServer:
 
                     elif menuOption[0] == 'b':
                         print('Server received b')
-                        contestSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        contestSocket.listen(5)
-                        print('ContestSocket listening on', self.contestSocket.getsockname()[1])
-                        listOfClients = []
-                        # acceptClientsThread = AcceptClientsThread(self.contestSocket, listOfClients)
-                        # acceptClientsThread.start()
-                        # time.sleep(20)
-                        # acceptClientsThread.event.clear()
-                        # acceptClientsThread.join()
-                        # print('JOINED')
-                        timeRemaining = 60
-                        while timeRemaining > 0:
-                            begin = time.time()
-                            contestSocket.settimeout(timeRemaining)
-                            contestantSocket, contestantSocketAddr = contestSocket.accept()
-                            print('NEW CONNECTION')
-                            listOfClients.append(contestantSocket)
-                            elapsed = time.time() - begin
-                            timeRemaining -= elapsed
+                        contestThread = threading.Thread(target=start_contest)
+                        contestThread.start()
+                        print('Started contest thread')
+                        # can't join here bc main thread will block, right?
+                        # can I just make it a daemon and forget about it?
 
                     elif menuOption[0] == 'l':
                         print('Server received l')
@@ -261,6 +247,32 @@ class AcceptClientsThread(threading.Thread):
             print('NEW CONNECTION')
             self.listOfClients.append(newClient)
         print('Should join now...')
+
+
+def start_contest():
+    listOfClients = []
+    contestSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    contestSocket.listen(5)
+    print('ContestSocket listening on', contestSocket.getsockname()[1])
+    # acceptClientsThread = AcceptClientsThread(self.contestSocket, listOfClients)
+    # acceptClientsThread.start()
+    # time.sleep(20)
+    # acceptClientsThread.event.clear()
+    # acceptClientsThread.join()
+    # print('JOINED')
+    timeRemaining = 20
+    while timeRemaining > 0:
+        print('timeRemaining:', timeRemaining)
+        begin = time.time()
+        contestSocket.settimeout(timeRemaining)
+        contestantSocket, contestantSocketAddr = contestSocket.accept()
+        print('NEW CONNECTION')
+        listOfClients.append(contestantSocket)
+        elapsed = time.time() - begin
+        timeRemaining -= elapsed
+    print('Done accepting connections!')
+    for x in listOfClients:
+        print(x)
 
 
 # RUNTIME STARTS HERE
