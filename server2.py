@@ -4,6 +4,7 @@ import pickle
 import socket
 import sys
 import threading
+import time
 import traceback
 
 
@@ -189,14 +190,25 @@ class ContestServer:
 
                     elif menuOption[0] == 'b':
                         print('Server received b')
-                        self.contestSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        self.contestSocket.listen(5)
+                        contestSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        contestSocket.listen(5)
                         print('ContestSocket listening on', self.contestSocket.getsockname()[1])
                         listOfClients = []
-                        acceptClientsThread = AcceptClientsThread(self.contestSocket, listOfClients)
-                        acceptClientsThread.start()
-                        time.sleep(20)
-                        acceptClientsThread.event.clear()
+                        # acceptClientsThread = AcceptClientsThread(self.contestSocket, listOfClients)
+                        # acceptClientsThread.start()
+                        # time.sleep(20)
+                        # acceptClientsThread.event.clear()
+                        # acceptClientsThread.join()
+                        # print('JOINED')
+                        timeRemaining = 60
+                        while timeRemaining > 0:
+                            begin = time.time()
+                            contestSocket.settimeout(timeRemaining)
+                            contestantSocket, contestantSocketAddr = contestSocket.accept()
+                            print('NEW CONNECTION')
+                            listOfClients.append(contestantSocket)
+                            elapsed = time.time() - begin
+                            timeRemaining -= elapsed
 
                     elif menuOption[0] == 'l':
                         print('Server received l')
@@ -243,9 +255,12 @@ class AcceptClientsThread(threading.Thread):
 
     def run(self):
         self.contestSocket.listen(5)
+        remaining = 60
         while self.event.is_set():
             newClient, newClientAddr = self.contestSocket.accept()
+            print('NEW CONNECTION')
             self.listOfClients.append(newClient)
+        print('Should join now...')
 
 
 # RUNTIME STARTS HERE

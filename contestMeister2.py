@@ -4,6 +4,7 @@ import pickle
 import socket
 import sys
 import threading
+import time
 import traceback
 
 
@@ -109,9 +110,20 @@ def get_sanitized_input():
                 return s
 
             # single arg commands
-            elif s[0] == 'p' or s[0] == 'd' or s[0] == 'g' or s[0] == 's' or s[:5] == 'begin' or s[0] == 'r':
+            elif s[0] == 'p' or s[0] == 'd' or s[0] == 'g' or s[0] == 's' or s[0] == 'r':
                 try:
                     if isinstance(int(s[2:]), int):
+                        return s
+                    else:
+                        print('Input validation error: second argument is wonky')
+                except IndexError as indexE:
+                    print('Input validation error: missing arguments')
+                except ValueError as valE:
+                    print('Input validation error: numeric arguments expected')
+
+            elif s[:5] == 'begin':
+                try:
+                    if isinstance(int(s[5:]), int):
                         return s
                     else:
                         print('Input validation error: second argument is wonky')
