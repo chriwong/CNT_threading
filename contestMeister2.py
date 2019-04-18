@@ -4,6 +4,7 @@ import pickle
 import socket
 import sys
 import threading
+import traceback
 
 
 class Question:
@@ -31,27 +32,40 @@ class ContestMeister:
     def __init__(self):
         self.meisterSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def tryConnect(self, h, p):
+    def try_connect(self, h, p):
         try:
             self.meisterSocket.connect((h, p))
             print('Successful connection!')
         except ConnectionRefusedError as connRefE:
             print('Error: unable to connect', str(connRefE), file=sys.stderr)
+            print(traceback.format_exc())
             sys.exit(-1)
         except Exception as connE:
             print('Connection error:', str(connE), file=sys.stderr)
+            print(traceback.format_exc())
 
-    def handle_input(self, op):
-        if op[0] == 'p':
-            self.p(op)
+    def handle_input(self, menuOpt):
+        if menuOpt[0] == 'p':
+            try:
+                newQuestion = build_Question(int(menuOpt[2:]))
+                print(newQuestion.toString())
+                pickledNewQuestion = pickle.dumps(newQuestion)
+                self.meisterSocket.send(pickledNewQuestion)
+                res = self.meisterSocket.recv(1024).decode()
+                print(res)
+            except ValueError:
+                print('p command error: number invalid\n', traceback.format_exc())
+                self.meisterSocket.recv(1024)
 
-        elif op[0] == 'd':
-            pass
+        elif menuOpt[0] == 'd':
+            res = self.meisterSocket.recv(64).decode()
+            print(res)
 
-        elif op[0] == 'g':
-            pass
+        elif menuOpt[0] == 'g':
+            res = self.meisterSocket.recv(64).decode()
+            print(res)
 
-        elif op[0] == 'k':
+        elif menuOpt[0] == 'k':
             self.meisterSocket.send('k'.encode())
             kill_confirm = self.meisterSocket.recv(8).decode()
             if kill_confirm == 'killed':
@@ -60,33 +74,26 @@ class ContestMeister:
             else:
                 print('Server unsuccessfully killed')
 
-        elif op[0] == 'q':
+        elif menuOpt[0] == 'q':
             pass
 
-        elif op[0] == 'h':
+        elif menuOpt[0] == 'h':
             pass
 
-        elif op[0] == 's':
+        elif menuOpt[0] == 's':
             pass
 
-        elif op[0] == 'a':
+        elif menuOpt[0] == 'a':
             pass
 
-        elif op[0] == 'b':
+        elif menuOpt[0] == 'b':
             pass
 
-        elif op[0] == 'l':
+        elif menuOpt[0] == 'l':
             pass
 
-        elif op[0] == 'r':
+        elif menuOpt[0] == 'r':
             pass
-
-    def p(self, number):
-        newQuestion = buildQuestion(number)
-        pickledNewQuestion = pickle.dumps(newQuestion)
-        self.meisterSocket.send(pickledNewQuestion)
-        res = self.meisterSocket.recv(1024).decode()
-        print(res)
 
 
 # Returns only syntactically correct menu options
@@ -96,7 +103,7 @@ def get_sanitized_input():
             s = str(input("> "))
 
             # noarg commands
-            if s[0] == 'k' or s[0] == 'q' or s[0] == 'h' or s[0] == 'l':
+            if s[0] == 'k' or s[0] == 'q' or s[0] == 'h' or s[0] == 'l' or s[0] == 'z':
                 return s
 
             # single arg commands
@@ -134,7 +141,7 @@ def get_sanitized_input():
 
 
 # Creates a Question object
-def buildQuestion(number):
+def build_Question(number):
     newQuestion = Question(number)
 
     # Tag
@@ -166,7 +173,7 @@ def buildQuestion(number):
     return newQuestion
 
 
-# Program start
+# RUNTIME STARTS HERE
 
 if len(sys.argv) < 3:
     print('Error: missing program arguments', file=sys.stderr)
@@ -177,9 +184,14 @@ elif len(sys.argv) > 4:
     sys.exit(-1)
 
 host = sys.argv[1]
-port = sys.argv[2]
+port = 0
+try:
+    port = int(sys.argv[2])
+except ValueError as nan:
+    print('Program start error: port is not valid:', str(nan), file=sys.stderr)
+    sys.exit(-1)
 contestMeister = ContestMeister()
-contestMeister.tryConnect(host, port)
+contestMeister.try_connect(host, port)
 
 if len(sys.argv) == 4:
     cmdfilename = sys.argv[3]
@@ -198,5 +210,6 @@ if len(sys.argv) == 4:
 else:
     while True:
         menuOption = get_sanitized_input()
+        contestMeister.meisterSocket.send(menuOption.encode())
         print('Sanitized input:', menuOption)
         contestMeister.handle_input(menuOption)

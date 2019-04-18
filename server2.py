@@ -4,6 +4,7 @@ import pickle
 import socket
 import sys
 import threading
+import traceback
 
 
 class Question:
@@ -39,20 +40,56 @@ class ContestServer:
     def __init__(self):
         self.host = ''
         self.port = 0
+        self.QuestionBank = {}
+        self.ContestBank = {}
+
+        # Try to load QuestionBank
+        try:
+            if os.stat('questionbank.pickle').st_size != 0:
+                with open('questionbank.pickle', 'rb') as file:
+                    print('Loaded QuestionBank from pickle')
+                    self.QuestionBank = pickle.load(file)
+                    file.close()
+            else:
+                print('Empty questionbank.pickle found')
+        except FileNotFoundError:
+            print('No questionbank.pickle found, creating one now...')
+            a = open('questionbank.pickle', 'wb+')
+            a.close()
+        except pickle.PickleError:
+            print('Pickling error', traceback.format_exc())
+
+        # Try to load ContestBank
+        try:
+            if os.stat('contestbank.pickle').st_size != 0:
+                with open('contestbank.pickle', 'rb') as file:
+                    print('Loaded ContestBank from pickle')
+                    self.ContestBank = pickle.load(file)
+                    file.close()
+            else:
+                print('Empty contestbank.pickle found')
+        except FileNotFoundError:
+            print('No contestbank.pickle found, creating one now...')
+            a = open('contestbank.pickle', 'wb+')
+            a.close()
+        except pickle.PickleError:
+            print('Pickling error', traceback.format_exc())
+
         try:
             self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.serverSocket.bind((self.host, self.port))
         except Exception as initE:
             print('Server init error:', str(initE), file=sys.stderr)
+            print(traceback.format_exc())
             sys.exit(-1)
 
-    def startListening(self):
+    def start_listening(self):
         try:
             self.serverSocket.listen(5)
             print('Server listening on ', self.serverSocket.getsockname()[1])
 
             while True:
-                meisterSocket, addr = self.serverSocket.accept()
+                meisterSocket, meisterSocketAddr = self.serverSocket.accept()
                 print('Accepted new connection')
 
                 while True:
@@ -60,35 +97,55 @@ class ContestServer:
                     print('menuoption:', menuOption)
 
                     if menuOption[0] == 'p':
-                        print('Server received p')
+                        print('Waiting for pickled question')
                         pickledQuestion = meisterSocket.recv(1024)
                         unpickledQuestion = pickle.loads(pickledQuestion)
-                        if unpickledQuestion.number not in QuestionBank:
-                            QuestionBank[unpickledQuestion.number] = unpickledQuestion
-                            meisterSocket.send('Success'.encode())
+                        print('New question:', unpickledQuestion.toString())
+                        if unpickledQuestion.number not in self.QuestionBank:
+                            self.QuestionBank[unpickledQuestion.number] = unpickledQuestion
+                            meisterSocket.send('Success: question added'.encode())
+                            print('Success: question added')
                         else:
                             # The given question number already exists in the question bank
                             # Notify the meister as such
-                            meisterSocket.send('Error, that question number already exists'.encode())
+                            meisterSocket.send('Error: question number already exists'.encode())
+                            print('Error: question number already exists')
 
                     elif menuOption[0] == 'd':
-                        delQuestion = int(menuOption[2:])
                         try:
-                            del QuestionBank[delQuestion]
-                        except KeyError as keyE:
+                            delIndex = int(menuOption[2:])
+                            del self.QuestionBank[delIndex]
+                            meisterSocket.send('Success: question deleted'.encode())
+                            print('Success: question deleted')
+                        except ValueError:
+                            meisterSocket.send('Error, number argument invalid'.encode())
+                            print('Deletion error: number invalid', traceback.format_exc())
+                        except KeyError:
                             # The given question number was not in the question bank
-                            meisterSocket.send('Error, that question number did not exist'.encode())
+                            meisterSocket.send('Error: question not found'.encode())
+                            print('Error: question not found')
 
                     elif menuOption[0] == 'g':
-                        print('Server received g')
+                        try:
+                            retIndex = int(menuOption[2:])
+                            retQuestion = self.QuestionBank[retIndex]
+                            meisterSocket.send(retQuestion.toString().encode())
+                            print('Retrieved question:', retQuestion.number, retQuestion.text)
+                        except ValueError:
+                            meisterSocket.send('Error: number argument invalid'.encode())
+                            print('Retrieval error: number invalid', traceback.format_exc())
+                        except KeyError:
+                            meisterSocket.send('Error: question not found'.encode())
+                            print('Error: question not found')
 
                     elif menuOption[0] == 'k':
-                        print('Server received k')
+                        print('Server received k. Terminating server...')
                         meisterSocket.send('killed'.encode())
-                        break
+                        sys.exit(2)
 
                     elif menuOption[0] == 'q':
-                        pass
+                        print('Server received q. Closing meister socket')
+                        meisterSocket.close()
 
                     elif menuOption[0] == 'h':
                         # meisterSocket.send('\tCONTEST MEISTER HELP MENU\np <n> - put new question <n> in question bank\nd <n> - deletes question <n>\ng <n> - retrieves question <n>\ns <n> - set new contest <n>\na <cn> <qn> - append question <qn> to contest <cn>\nbegin <n> - begin contest <n>\nl - list contests\nr <n> - review contest <n>\nk - kill server\nq - kill client\nh - print this help text\n'.encode())
@@ -110,14 +167,26 @@ class ContestServer:
                     elif menuOption[0] == 'r':
                         print('Server received r')
 
+                    elif menuOption[0] == 'z':
+                        for q in self.QuestionBank:
+                            print(q)
+
                     else:
                         print('Server received unexpected input')
+
+                    try:
+                        with open('questionbank.pickle', 'wb+') as file:
+                            pickle.dump(self.QuestionBank, file)
+                            file.close()
+                    except pickle.PickleError:
+                        print('Pickling error', traceback.format_exc())
 
                 meisterSocket.close()
                 print(' ~Closed connection')
 
         except Exception as listenE:
             print('Server listen error:', str(listenE), file=sys.stderr)
+            print(traceback.format_exc())
             sys.exit(-1)
 
     def can_sockets_pickle(self):
@@ -144,41 +213,7 @@ class AcceptClientsThread(threading.Thread):
             self.listOfClients.append(newClient)
 
 
-def main():
-    global QuestionBank
-    global ContestBank
-    contestServer = ContestServer()
-    contestServer.startListening()
-
-
 # RUNTIME STARTS HERE
 
-QuestionBank = {}   # {int questionNumber, Question q}
-ContestBank = {}    # {int contestNumber, Contest c}
-
-# Try to load QuestionBank from file
-try:
-    if os.stat('questionbank.pickle').st_size != 0:
-        with open('questionbank.pickle', 'rb') as file:
-            print('Loaded QuestionBank from pickle')
-            QuestionBank = pickle.load(file)
-            file.close()
-except FileNotFoundError as e:
-    print('No questionbank.pickle found, creating one now...')
-    a = open('questionbank.pickle', 'wb+')
-    a.close()
-
-# Try to load ContestBank from file
-try:
-    if os.stat('contestbank.pickle').st_size != 0:
-        with open('contestbank.pickle', 'rb') as file:
-            print('Loaded ContestBank from pickle')
-            ContestBank = pickle.load(file)
-            file.close()
-except FileNotFoundError as e:
-    print('No contestbank.pickle found, creating one now...')
-    a = open('contestbank.pickle', 'wb+')
-    a.close()
-
-if __name__ == '__main__':
-    main()
+contestServer = ContestServer()
+contestServer.start_listening()
