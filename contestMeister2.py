@@ -105,7 +105,7 @@ def get_sanitized_input():
             s = str(input("> "))
 
             # noarg commands
-            if s[0] == 'k' or s[0] == 'q' or s[0] == 'h' or s[0] == 'l' or s[0] == 'z':
+            if s[0] == 'k' or s[0] == 'q' or s[0] == 'h' or s[0] == 'l' or s[0] == 'z' or s[0] == 'y':
                 return s
 
             # single arg commands

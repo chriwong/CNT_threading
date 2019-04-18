@@ -86,7 +86,7 @@ class ContestServer:
     def start_listening(self):
         try:
             self.serverSocket.listen(5)
-            print('Server listening on ', self.serverSocket.getsockname()[1])
+            print('Server listening on', self.serverSocket.getsockname()[1])
 
             while True:
                 meisterSocket, meisterSocketAddr = self.serverSocket.accept()
@@ -189,6 +189,14 @@ class ContestServer:
 
                     elif menuOption[0] == 'b':
                         print('Server received b')
+                        self.contestSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        self.contestSocket.listen(5)
+                        print('ContestSocket listening on', self.contestSocket.getsockname()[1])
+                        listOfClients = []
+                        acceptClientsThread = AcceptClientsThread(self.contestSocket, listOfClients)
+                        acceptClientsThread.start()
+                        time.sleep(20)
+                        acceptClientsThread.event.clear()
 
                     elif menuOption[0] == 'l':
                         print('Server received l')
@@ -199,6 +207,12 @@ class ContestServer:
                     elif menuOption[0] == 'z':
                         for q, v in self.QuestionBank.items():
                             print(q, v.text)
+
+                    elif menuOption[0] == 'y':
+                        for c, v in self.ContestBank.items():
+                            print('Contest', c)
+                            for qs, v in self.ContestBank[c].questions:
+                                print(qs, v.text)
 
                     else:
                         print('Server received unexpected input')
