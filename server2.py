@@ -94,7 +94,7 @@ class ContestServer:
 
                 while True:
                     menuOption = meisterSocket.recv(64).decode()
-                    print('menuoption:', menuOption)
+                    print('>', menuOption)
 
                     if menuOption[0] == 'p':
                         print('Waiting for pickled question')
@@ -108,8 +108,8 @@ class ContestServer:
                         else:
                             # The given question number already exists in the question bank
                             # Notify the meister as such
-                            meisterSocket.send('Error: question number already exists'.encode())
-                            print('Error: question number already exists')
+                            meisterSocket.send('Put error: question number already exists'.encode())
+                            print('Put error: question number already exists')
 
                     elif menuOption[0] == 'd':
                         try:
@@ -118,12 +118,12 @@ class ContestServer:
                             meisterSocket.send('Success: question deleted'.encode())
                             print('Success: question deleted')
                         except ValueError:
-                            meisterSocket.send('Error, number argument invalid'.encode())
-                            print('Deletion error: number invalid', traceback.format_exc())
+                            meisterSocket.send('Delete error, number argument invalid'.encode())
+                            print('Delete error: number invalid', traceback.format_exc())
                         except KeyError:
                             # The given question number was not in the question bank
-                            meisterSocket.send('Error: question not found'.encode())
-                            print('Error: question not found')
+                            meisterSocket.send('Delete error: question not found'.encode())
+                            print('Delete error: question not found')
 
                     elif menuOption[0] == 'g':
                         try:
@@ -132,11 +132,11 @@ class ContestServer:
                             meisterSocket.send(retQuestion.toString().encode())
                             print('Retrieved question:', retQuestion.number, retQuestion.text)
                         except ValueError:
-                            meisterSocket.send('Error: number argument invalid'.encode())
-                            print('Retrieval error: number invalid', traceback.format_exc())
+                            meisterSocket.send('Get error: number argument invalid'.encode())
+                            print('Get error: number invalid', traceback.format_exc())
                         except KeyError:
-                            meisterSocket.send('Error: question not found'.encode())
-                            print('Error: question not found')
+                            meisterSocket.send('Get error: question not found'.encode())
+                            print('Get: question not found')
 
                     elif menuOption[0] == 'k':
                         print('Server received k. Terminating server...')
@@ -145,18 +145,47 @@ class ContestServer:
 
                     elif menuOption[0] == 'q':
                         print('Server received q. Closing meister socket')
-                        meisterSocket.close()
+                        break
 
                     elif menuOption[0] == 'h':
-                        # meisterSocket.send('\tCONTEST MEISTER HELP MENU\np <n> - put new question <n> in question bank\nd <n> - deletes question <n>\ng <n> - retrieves question <n>\ns <n> - set new contest <n>\na <cn> <qn> - append question <qn> to contest <cn>\nbegin <n> - begin contest <n>\nl - list contests\nr <n> - review contest <n>\nk - kill server\nq - kill client\nh - print this help text\n'.encode())
                         print('Server received h')
                         pass
 
                     elif menuOption[0] == 's':
                         print('Server received s')
+                        try:
+                            setIndex = int(menuOption[2:])
+                            if setIndex not in self.ContestBank:
+                                self.ContestBank[setIndex] = Contest(setIndex)
+                                meisterSocket.send('Success: contest set'.encode())
+                                print('Success: contest set')
+                            else:
+                                meisterSocket.send('Set error: contest number already exists'.encode())
+                                print('Set error: contest number already exists')
+                        except ValueError:
+                            meisterSocket.send('Set error: numeric arg invalid'.encode())
+                            print('Set error: numeric arg invalid')
 
                     elif menuOption[0] == 'a':
                         print('Server received a')
+                        sp = menuOption.find(' ', 3)
+                        if sp == -1:
+                            meisterSocket.send('Add error: args invalid'.encode())
+                            print('Add error: args invalid')
+                        else:
+                            try:
+                                addContestIndex = int(menuOption[2:sp])
+                                addQuestionIndex = int(menuOption[sp:])
+                                addContest = self.ContestBank[addContestIndex]
+                                addQuestion = self.QuestionBank[addQuestionIndex]
+                                addContest.questions.append(addQuestion)
+                                meisterSocket.send('Success: question added to contest'.encode())
+                            except ValueError:
+                                meisterSocket.send('Add error: invalid arguments'.encode())
+                                print('Add error: invalid arguments')
+                            except KeyError:
+                                meisterSocket.send('Add error: no such contest/question'.encode())
+                                print('Add error: no such contest/question')
 
                     elif menuOption[0] == 'b':
                         print('Server received b')
@@ -168,8 +197,8 @@ class ContestServer:
                         print('Server received r')
 
                     elif menuOption[0] == 'z':
-                        for q in self.QuestionBank:
-                            print(q)
+                        for q, v in self.QuestionBank.items():
+                            print(q, v.text)
 
                     else:
                         print('Server received unexpected input')
@@ -188,14 +217,6 @@ class ContestServer:
             print('Server listen error:', str(listenE), file=sys.stderr)
             print(traceback.format_exc())
             sys.exit(-1)
-
-    def can_sockets_pickle(self):
-        self.serverSocket.listen(5)
-        print('Server listening on ', self.serverSocket.getsockname()[1])
-        connection, addr = self.serverSocket.accept()
-        pickledQ = connection.recv(1024)
-        normalQuestion = pickle.loads(pickledQ)
-        print(normalQuestion)
 
 
 class AcceptClientsThread(threading.Thread):

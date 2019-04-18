@@ -55,19 +55,18 @@ class ContestMeister:
                 print(res)
             except ValueError:
                 print('p command error: number invalid\n', traceback.format_exc())
-                self.meisterSocket.recv(1024)
+                self.meisterSocket.recv(64)
 
         elif menuOpt[0] == 'd':
             res = self.meisterSocket.recv(64).decode()
             print(res)
 
         elif menuOpt[0] == 'g':
-            res = self.meisterSocket.recv(64).decode()
+            res = self.meisterSocket.recv(1024).decode()
             print(res)
 
         elif menuOpt[0] == 'k':
-            self.meisterSocket.send('k'.encode())
-            kill_confirm = self.meisterSocket.recv(8).decode()
+            kill_confirm = self.meisterSocket.recv(6).decode()
             if kill_confirm == 'killed':
                 print('Server successfully killed')
                 sys.exit(1)
@@ -75,16 +74,19 @@ class ContestMeister:
                 print('Server unsuccessfully killed')
 
         elif menuOpt[0] == 'q':
-            pass
+            print('Terminating contest meister...')
+            sys.exit(2)
 
         elif menuOpt[0] == 'h':
-            pass
+            print('\n\tCONTEST MEISTER HELP MENU\np <n> - put new question <n> in question bank\nd <n> - deletes question <n>\ng <n> - retrieves question <n>\ns <n> - set new contest <n>\na <cn> <qn> - append question <qn> to contest <cn>\nbegin <n> - begin contest <n>\nl - list contests\nr <n> - review contest <n>\nk - kill server\nq - kill client\nh - print this help text\n')
 
         elif menuOpt[0] == 's':
-            pass
+            res = self.meisterSocket.recv(64).decode()
+            print(res)
 
         elif menuOpt[0] == 'a':
-            pass
+            res = self.meisterSocket.recv(64).decode()
+            print(res)
 
         elif menuOpt[0] == 'b':
             pass
@@ -142,7 +144,14 @@ def get_sanitized_input():
 
 # Creates a Question object
 def build_Question(number):
-    newQuestion = Question(number)
+    n = 0
+    try:
+        n = int(number)
+    except ValueError:
+        print('Question-building error: number argument invalid')
+        return None
+
+    newQuestion = Question(n)
 
     # Tag
     newQuestion.tag = input()
