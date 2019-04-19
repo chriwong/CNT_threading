@@ -33,9 +33,9 @@ class ContestMeister:
     def __init__(self):
         self.meisterSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def try_connect(self, h, p):
+    def try_connect(self, addr):
         try:
-            self.meisterSocket.connect((h, p))
+            self.meisterSocket.connect(addr)
             print('Successful connection!')
         except ConnectionRefusedError as connRefE:
             print('Error: unable to connect', str(connRefE), file=sys.stderr)
@@ -44,6 +44,7 @@ class ContestMeister:
         except Exception as connE:
             print('Connection error:', str(connE), file=sys.stderr)
             print(traceback.format_exc())
+            sys.exit(-1)
 
     def handle_input(self, menuOpt):
         if menuOpt[0] == 'p':
@@ -116,9 +117,9 @@ def get_sanitized_input():
                         return s
                     else:
                         print('Input validation error: second argument is wonky')
-                except IndexError as indexE:
+                except IndexError:
                     print('Input validation error: missing arguments')
-                except ValueError as valE:
+                except ValueError:
                     print('Input validation error: numeric arguments expected')
 
             elif s[:5] == 'begin':
@@ -127,9 +128,9 @@ def get_sanitized_input():
                         return s
                     else:
                         print('Input validation error: second argument is wonky')
-                except IndexError as indexE:
+                except IndexError:
                     print('Input validation error: missing arguments')
-                except ValueError as valE:
+                except ValueError:
                     print('Input validation error: numeric arguments expected')
 
             # two arg command
@@ -143,15 +144,15 @@ def get_sanitized_input():
                             return s
                         else:
                             print('Input validation error: third argument is wonky')
-                    except IndexError as e:
+                    except IndexError:
                         print('Input validation error: missing arguments')
-                    except ValueError as e:
+                    except ValueError:
                         print('Input validation error: numeric arguments expected')
             else:
                 print('Input validation error: unrecognized menu option. Enter q,d,g,k,q,h,s,a,begin,l,r')
 
-        except Exception as e:
-            print('Input validation error:', str(e))
+        except Exception:
+            print('Input validation error:', traceback.format_exc())
 
 
 # Creates a Question object
@@ -212,7 +213,7 @@ except ValueError as nan:
     print('Program start error: port is not valid:', str(nan), file=sys.stderr)
     sys.exit(-1)
 contestMeister = ContestMeister()
-contestMeister.try_connect(host, port)
+contestMeister.try_connect((host, port))
 
 if len(sys.argv) == 4:
     cmdfilename = sys.argv[3]

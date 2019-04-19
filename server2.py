@@ -277,7 +277,7 @@ class AcceptClientsThread(threading.Thread):
         print('Should join now...')
 
 
-def start_contest():
+def start_contest(contest):
     listOfClients = []
     contestSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     contestSocket.listen(5)
