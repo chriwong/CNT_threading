@@ -16,7 +16,7 @@ class Question:
         self.choices = {}
         self.answer = ''
 
-    def toString(self):
+    def to_string(self):
         s = ''
         s += self.tag
         s += '\n'
@@ -35,6 +35,17 @@ class Contest:
         self.questions = []
         self.correctness = []
         self.executed = False
+        self.maxCorrect = 0
+
+    def to_string(self):
+        s = ''
+        s = s + str(self.number) + '\t'
+        s = s + str(len(self.questions)) + ' question(s), '
+        s = s + 'run, ' if self.executed else s + 'not run'
+        if len(self.questions) != 0 and self.executed:
+            s = s + 'average correct: ' + str(avg(self.correctness)) + '; '
+            s = s + 'maximum correct: ' + str(self.maxCorrect)
+        return s
 
 
 class ContestServer:
@@ -101,7 +112,7 @@ class ContestServer:
                         print('Waiting for pickled question')
                         pickledQuestion = meisterSocket.recv(1024)
                         unpickledQuestion = pickle.loads(pickledQuestion)
-                        print('New question:', unpickledQuestion.toString())
+                        print('New question:', unpickledQuestion.to_string())
                         if unpickledQuestion.number not in self.QuestionBank:
                             self.QuestionBank[unpickledQuestion.number] = unpickledQuestion
                             meisterSocket.send('Success: question added'.encode())
@@ -130,7 +141,7 @@ class ContestServer:
                         try:
                             retIndex = int(menuOption[2:])
                             retQuestion = self.QuestionBank[retIndex]
-                            meisterSocket.send(retQuestion.toString().encode())
+                            meisterSocket.send(retQuestion.to_string().encode())
                             print('Retrieved question:', retQuestion.number, retQuestion.text)
                         except ValueError:
                             meisterSocket.send('Get error: number argument invalid'.encode())
@@ -190,14 +201,24 @@ class ContestServer:
 
                     elif menuOption[0] == 'b':
                         print('Server received b')
-                        contestThread = threading.Thread(target=start_contest)
-                        contestThread.start()
-                        print('Started contest thread')
-                        # can't join here bc main thread will block, right?
-                        # can I just make it a daemon and forget about it?
+                        try:
+                            beginIndex = int(menuOption[2:])
+                            beginContest = self.ContestBank[beginIndex]
+                            if len(beginContest.questions) != 0:
+                                contestThread = threading.Thread(target=start_contest, args=(beginContest,))
+                                contestThread.start()
+                                print('Started contest thread')
+                            else:
+                                meisterSocket.send('Begin error: contest has no questions'.encode())
+                                print('Begin error: contest has no questions')
+                        except KeyError:
+                            meisterSocket.send('Begin error: no such contest'.encode())
+                            print('Begin error: no such contest')
 
                     elif menuOption[0] == 'l':
                         print('Server received l')
+                        for contest in self.ContestBank.values():
+                            print(contest.to_string(), sep='\n')
 
                     elif menuOption[0] == 'r':
                         print('Server received r')
@@ -209,8 +230,8 @@ class ContestServer:
                     elif menuOption[0] == 'y':
                         for c, v in self.ContestBank.items():
                             print('Contest', c)
-                            for qs, v in self.ContestBank[c].questions:
-                                print(qs, v.text)
+                            for q in self.ContestBank[c].questions:
+                                print(q.number, q.text)
 
                     else:
                         print('Server received unexpected input')
@@ -218,6 +239,13 @@ class ContestServer:
                     try:
                         with open('questionbank.pickle', 'wb+') as file:
                             pickle.dump(self.QuestionBank, file)
+                            file.close()
+                    except pickle.PickleError:
+                        print('Pickling error', traceback.format_exc())
+
+                    try:
+                        with open('contestbank.pickle', 'wb+') as file:
+                            pickle.dump(self.ContestBank, file)
                             file.close()
                     except pickle.PickleError:
                         print('Pickling error', traceback.format_exc())
@@ -262,17 +290,28 @@ def start_contest():
     # print('JOINED')
     timeRemaining = 20
     while timeRemaining > 0:
-        print('timeRemaining:', timeRemaining)
-        begin = time.time()
-        contestSocket.settimeout(timeRemaining)
-        contestantSocket, contestantSocketAddr = contestSocket.accept()
-        print('NEW CONNECTION')
-        listOfClients.append(contestantSocket)
-        elapsed = time.time() - begin
-        timeRemaining -= elapsed
-    print('Done accepting connections!')
+        try:
+            print('timeRemaining:', timeRemaining)
+            begin = time.time()
+            contestSocket.settimeout(timeRemaining)
+            contestantSocket, contestantSocketAddr = contestSocket.accept()
+            print('NEW CONNECTION')
+            listOfClients.append(contestantSocket)
+            elapsed = time.time() - begin
+            timeRemaining -= elapsed
+        except socket.timeout:
+            print('Time\'s up! Let\'s begin!')
+            break
+    print('Here are our contestants:')
     for x in listOfClients:
         print(x)
+
+
+def avg(arr):
+    total = 0
+    for a in arr:
+        total += a
+    return total/len(arr)
 
 
 # RUNTIME STARTS HERE
