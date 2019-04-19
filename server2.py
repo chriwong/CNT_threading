@@ -59,7 +59,7 @@ class ContestServer:
         try:
             if os.stat('questionbank.pickle').st_size != 0:
                 with open('questionbank.pickle', 'rb') as file:
-                    print('Loaded QuestionBank from pickle')
+                    print('Loaded questions from questionbank.pickle')
                     self.QuestionBank = pickle.load(file)
                     file.close()
             else:
@@ -75,7 +75,7 @@ class ContestServer:
         try:
             if os.stat('contestbank.pickle').st_size != 0:
                 with open('contestbank.pickle', 'rb') as file:
-                    print('Loaded ContestBank from pickle')
+                    print('Loaded contests from contestbank.pickle')
                     self.ContestBank = pickle.load(file)
                     file.close()
             else:
@@ -90,8 +90,8 @@ class ContestServer:
         try:
             self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.serverSocket.bind((self.host, self.port))
-        except Exception as initE:
-            print('Server init error:', str(initE), file=sys.stderr)
+        except Exception:
+            print('Server init error:', traceback.format_exc(), file=sys.stderr)
             print(traceback.format_exc())
             sys.exit(-1)
 
@@ -106,7 +106,7 @@ class ContestServer:
 
                 while True:
                     menuOption = meisterSocket.recv(64).decode()
-                    print('>', menuOption)
+                    print('From meister >', menuOption)
 
                     if menuOption[0] == 'p':
                         print('Waiting for pickled question')
@@ -151,20 +151,18 @@ class ContestServer:
                             print('Get: question not found')
 
                     elif menuOption[0] == 'k':
-                        print('Server received k. Terminating server...')
+                        print('Terminating server...')
                         meisterSocket.send('killed'.encode())
                         sys.exit(2)
 
                     elif menuOption[0] == 'q':
-                        print('Server received q. Closing meister socket')
+                        print('Closing meister socket')
                         break
 
                     elif menuOption[0] == 'h':
-                        print('Server received h')
                         pass
 
                     elif menuOption[0] == 's':
-                        print('Server received s')
                         try:
                             setIndex = int(menuOption[2:])
                             if setIndex not in self.ContestBank:
@@ -179,7 +177,6 @@ class ContestServer:
                             print('Set error: numeric arg invalid')
 
                     elif menuOption[0] == 'a':
-                        print('Server received a')
                         sp = menuOption.find(' ', 3)
                         if sp == -1:
                             meisterSocket.send('Add error: args invalid'.encode())
@@ -200,7 +197,6 @@ class ContestServer:
                                 print('Add error: no such contest/question')
 
                     elif menuOption[0] == 'b':
-                        print('Server received b')
                         try:
                             beginIndex = int(menuOption[2:])
                             beginContest = self.ContestBank[beginIndex]
@@ -216,18 +212,39 @@ class ContestServer:
                             print('Begin error: no such contest')
 
                     elif menuOption[0] == 'l':
-                        print('Server received l')
-                        for contest in self.ContestBank.values():
-                            print(contest.to_string(), sep='\n')
+                        if len(self.ContestBank) == 0:
+                            meisterSocket.send('No contests set yet'.encode())
+                            print('No contests set yet')
+                        else:
+                            print('Listing contests:')
+                            ls = ''
+                            for contest in self.ContestBank.values():
+                                ls = ls + contest.to_string() + '\n'
+                                print(contest.to_string(), sep='\n')
+                            meisterSocket.send(ls.encode())
 
                     elif menuOption[0] == 'r':
-                        print('Server received r')
+                        try:
+                            reviewIndex = int(menuOption[2:])
+                            reviewContest = self.ContestBank[reviewIndex]
+                            rs = reviewContest.to_string()
+                            print(reviewContest.to_string())
+                            for q in zip(reviewContest.questions, reviewContest.correctness):
+                                rs = rs + '\t' + q[0].number + '\t' + str(float(q[1])*100) + ' % correct\n'
+                                print('\t', q[0].number, '\t', str(float(q[1])*100), '% correct', sep='', end='\n')
+                            meisterSocket.send(rs.encode())
+
+                        except KeyError:
+                            meisterSocket.send('Begin error: no such contest'.encode())
+                            print('Begin error: no such contest')
 
                     elif menuOption[0] == 'z':
+                        print('~Debugger: list questions')
                         for q, v in self.QuestionBank.items():
                             print(q, v.text)
 
                     elif menuOption[0] == 'y':
+                        print('~Debugger: list contests')
                         for c, v in self.ContestBank.items():
                             print('Contest', c)
                             for q in self.ContestBank[c].questions:
@@ -253,9 +270,8 @@ class ContestServer:
                 meisterSocket.close()
                 print(' ~Closed connection')
 
-        except Exception as listenE:
-            print('Server listen error:', str(listenE), file=sys.stderr)
-            print(traceback.format_exc())
+        except Exception:
+            print('Server listen error:', traceback.format_exc(), file=sys.stderr)
             sys.exit(-1)
 
 

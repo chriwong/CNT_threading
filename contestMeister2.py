@@ -94,7 +94,8 @@ class ContestMeister:
             pass
 
         elif menuOpt[0] == 'l':
-            pass
+            res = self.meisterSocket.recv(1024).decode()
+            print(res)
 
         elif menuOpt[0] == 'r':
             pass
@@ -220,7 +221,59 @@ if len(sys.argv) == 4:
     try:
         with open(cmdfilename, 'r') as cmdfile:
             for line in cmdfile:
-                # do command
+                if line[0] == 'p':
+                    try:
+                        newQuestion = build_Question(int(line[2:]))
+                        print(newQuestion.toString())
+                        pickledNewQuestion = pickle.dumps(newQuestion)
+                        contestMeister.meisterSocket.send(pickledNewQuestion)
+                        resp = contestMeister.meisterSocket.recv(1024).decode()
+                        print(res)
+                    except ValueError:
+                        print('p command error: number invalid\n', traceback.format_exc())
+                        contestMeister.meisterSocket.recv(64)
+
+                elif line[0] == 'd':
+                    res = contestMeister.meisterSocket.recv(64).decode()
+                    print(res)
+
+                elif line[0] == 'g':
+                    res = contestMeister.meisterSocket.recv(1024).decode()
+                    print(res)
+
+                elif line[0] == 'k':
+                    kill_confirm = contestMeister.meisterSocket.recv(6).decode()
+                    if kill_confirm == 'killed':
+                        print('Server successfully killed')
+                        sys.exit(1)
+                    else:
+                        print('Server unsuccessfully killed')
+
+                elif line[0] == 'q':
+                    print('Terminating contest meister...')
+                    sys.exit(2)
+
+                elif line[0] == 'h':
+                    print(
+                        '\n\tCONTEST MEISTER HELP MENU\np <n> - put new question <n> in question bank\nd <n> - deletes question <n>\ng <n> - retrieves question <n>\ns <n> - set new contest <n>\na <cn> <qn> - append question <qn> to contest <cn>\nbegin <n> - begin contest <n>\nl - list contests\nr <n> - review contest <n>\nk - kill server\nq - kill client\nh - print this help text\n')
+
+                elif line[0] == 's':
+                    res = contestMeister.meisterSocket.recv(64).decode()
+                    print(res)
+
+                elif line[0] == 'a':
+                    res = contestMeister.meisterSocket.recv(64).decode()
+                    print(res)
+
+                elif line[0] == 'b':
+                    pass
+
+                elif line[0] == 'l':
+                    res = contestMeister.meisterSocket.recv(1024).decode()
+                    print(res)
+
+                elif line[0] == 'r':
+                    pass
                 pass
 
     except OSError as e:
@@ -233,5 +286,5 @@ else:
     while True:
         menuOption = get_sanitized_input()
         contestMeister.meisterSocket.send(menuOption.encode())
-        print('Sanitized input:', menuOption)
+        # print('Sanitized input:', menuOption)
         contestMeister.handle_input(menuOption)
